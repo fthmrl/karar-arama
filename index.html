@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karar Arama</title>
+<style>
+:root{--bg:#f6f5f2;--panel:#fff;--ink:#1d1d1b;--soft:#6b6a66;--line:#e3e1dc;--acc:#8a1c1c;--acc-ink:#fff;--sel:#f3e9e6;--mark:#ffe58a;}
+@media (prefers-color-scheme:dark){:root{--bg:#17171a;--panel:#202024;--ink:#ecebe8;--soft:#9c9a95;--line:#34343a;--acc:#d0675c;--acc-ink:#111;--sel:#33282a;--mark:#7a6420;}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 16px}
+form{display:grid;grid-template-columns:1fr auto;gap:8px;max-width:1400px;margin:0 auto}
+.ana{display:flex;gap:8px}
+input,select,button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 10px}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:-1px}
+#q{flex:1;font-size:16px}
+button{cursor:pointer}
+button.birincil{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600;padding:7px 18px}
+.filtre{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--soft)}
+.filtre label{display:flex;align-items:center;gap:5px}
+.filtre input{width:115px;padding:5px 8px;font-size:13px}
+.filtre input.genis{width:180px}
+.filtre select{padding:5px 8px;font-size:13px}
+.ipucu{grid-column:1/-1;font-size:12px;color:var(--soft)}
+main{flex:1;display:grid;grid-template-columns:minmax(300px,400px) 1fr;min-height:0;max-width:1400px;width:100%;margin:0 auto}
+#liste{border-right:1px solid var(--line);overflow:auto;background:var(--panel)}
+#ozet{padding:10px 14px;font-size:13px;color:var(--soft);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+.kayit{padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.kayit:hover{background:var(--bg)}
+.kayit.secili{background:var(--sel);box-shadow:inset 3px 0 var(--acc)}
+.kayit b{display:block;font-weight:600}
+.kayit span{font-size:13px;color:var(--soft)}
+.sayfalar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:13px;color:var(--soft)}
+#okuma{overflow:auto;padding:20px 28px}
+#arac{display:none;gap:8px;flex-wrap:wrap;margin-bottom:14px;position:sticky;top:-20px;background:var(--bg);padding:8px 0}
+#arac button{font-size:13px;padding:5px 12px}
+#kunye{font-weight:700;font-size:17px;margin:0 0 12px}
+#metin{white-space:pre-wrap;font-family:Georgia,"Times New Roman",serif;font-size:16px;line-height:1.65;max-width:860px}
+mark{background:var(--mark);color:inherit;border-radius:2px}
+.bos{color:var(--soft);padding:30px 14px;text-align:center}
+.hata{color:var(--acc)}
+#bildirim{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:7px 14px;border-radius:7px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+@media (max-width:800px){main{grid-template-columns:1fr}#liste{max-height:45vh;border-right:0;border-bottom:1px solid var(--line)}#okuma{padding:16px}}
+@media print{header,#liste,#arac,#bildirim{display:none!important}main{display:block}#okuma{overflow:visible;padding:0}body{background:#fff;color:#000}mark{background:none}}
+</style>
+</head>
+<body>
+<header>
+<form id="f" autocomplete="off">
+  <div class="ana">
+    <input id="q" placeholder='Aranacak kelimeler — tam ifade için tırnak: "kira tespit"' autofocus>
+    <button class="birincil" type="submit">Ara</button>
+  </div>
+  <div></div>
+  <div class="filtre">
+    <label>Kaynak <select id="tur">
+      <option value="YARGITAYKARARI">Yargıtay</option>
+      <option value="DANISTAYKARAR">Danıştay</option>
+      <option value="ISTINAFHUKUK">İstinaf (Hukuk)</option>
+      <option value="YERELHUKUK">Yerel Hukuk</option>
+      <option value="KYB">Kanun Yararına Bozma</option>
+    </select></label>
+    <label>Daire <input id="daire" class="genis" list="daireler" placeholder="tümü"></label>
+    <label>Esas <input id="esas" placeholder="2025/4989"></label>
+    <label>Karar <input id="karar" placeholder="2026/6208"></label>
+    <label>Tarih <input id="bas" placeholder="01.01.2020"> – <input id="bit" placeholder="31.12.2026"></label>
+    <label>Sıra <select id="sira"><option value="yeni">En yeni</option><option value="eski">En eski</option><option value="ilgi">İlgi</option></select></label>
+    <button type="button" id="temizle">Temizle</button>
+  </div>
+</form>
+<datalist id="daireler"></datalist>
+</header>
+<main>
+  <section id="liste"><div class="bos">Kelime ya da esas/karar no girip arayın.</div></section>
+  <article id="okuma">
+    <div id="arac">
+      <button id="kopyaKunye">Künyeyi kopyala</button>
+      <button id="kopyaMetin">Metni kopyala</button>
+      <button id="yazdir">Yazdır / PDF</button>
+    </div>
+    <h1 id="kunye"></h1>
+    <div id="metin"></div>
+  </article>
+</main>
+<div id="bildirim"></div>
+<script>
+const $ = id => document.getElementById(id);
+const dl = $('daireler');
+const daireler = [];
+for (let i = 1; i <= 23; i++) daireler.push(i + '. Hukuk Dairesi');
+for (let i = 1; i <= 23; i++) daireler.push(i + '. Ceza Dairesi');
+daireler.push('Hukuk Genel Kurulu', 'Ceza Genel Kurulu', 'Büyük Genel Kurulu');
+for (let i = 1; i <= 17; i++) daireler.push(i + '. Daire');
+daireler.push('İdari Dava Daireleri Kurulu', 'Vergi Dava Daireleri Kurulu');
+dl.innerHTML = daireler.map(d => `<option value="${d}">`).join('');
+
+const alanlar = ['q','tur','daire','esas','karar','bas','bit','sira'];
+let durum = {sayfa: 1}, secili = null, son = null;
+
+function esc(s){return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function kisalt(d){return d.replace('Hukuk Dairesi','HD').replace('Ceza Dairesi','CD').replace('Hukuk Genel Kurulu','HGK').replace('Ceza Genel Kurulu','CGK');}
+function kunye(x){
+  const kurum = {YARGITAYKARARI:'Yargıtay', DANISTAYKARAR:'Danıştay', KYB:'Yargıtay'}[x.tur] || '';
+  return [kurum, kisalt(x.daire)].filter(Boolean).join(' ') + ` ${x.esas} E., ${x.karar} K.` + (x.tarih ? `, ${x.tarih} T.` : '');
+}
+function bildir(m){const b=$('bildirim'); b.textContent=m; b.style.opacity=1; clearTimeout(bildir.t); bildir.t=setTimeout(()=>b.style.opacity=0,1800);}
+function terimler(){
+  const q = $('q').value, t = [];
+  q.replace(/"([^"]+)"|(\S+)/g, (_, a, b) => { const s=(a||b||'').replace(/^[+\-]/,''); if (s.length>1) t.push(s); });
+  return t;
+}
+function vurgula(metin){
+  let h = esc(metin);
+  const t = terimler(); if (!t.length) return h;
+  const re = new RegExp('(' + t.map(s => esc(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+')).join('|') + ')', 'giu');
+  return h.replace(re, '<mark>$1</mark>');
+}
+async function al(url){
+  const r = await fetch(url); const j = await r.json().catch(()=>({hata:'Sunucu yanıtı okunamadı'}));
+  if (!r.ok || j.hata) throw new Error(j.hata || ('HTTP ' + r.status));
+  return j;
+}
+function hashYaz(){
+  const p = new URLSearchParams(); alanlar.forEach(a => { const v=$(a).value; if (v && !(a==='tur'&&v==='YARGITAYKARARI') && !(a==='sira'&&v==='yeni')) p.set(a, v); });
+  if (durum.sayfa > 1) p.set('sayfa', durum.sayfa);
+  history.replaceState(null, '', '#' + p.toString());
+}
+async function ara(sayfa){
+  durum.sayfa = sayfa || 1; hashYaz();
+  const p = new URLSearchParams(); alanlar.forEach(a => p.set(a, $(a).value)); p.set('sayfa', durum.sayfa); p.set('adet', 20);
+  const L = $('liste'); L.innerHTML = '<div class="bos">Aranıyor…</div>';
+  try {
+    const r = await al('/api/ara?' + p); son = r;
+    if (!r.sonuclar.length) { L.innerHTML = '<div class="bos">Sonuç bulunamadı.</div>'; return; }
+    const sayfaSay = Math.ceil(r.toplam / r.adet);
+    L.innerHTML = `<div id="ozet">${r.toplam.toLocaleString('tr-TR')} karar · sayfa ${r.sayfa} / ${sayfaSay.toLocaleString('tr-TR')}</div>` +
+      r.sonuclar.map((x,i) => `<div class="kayit" data-i="${i}"><b>${esc(kisalt(x.daire))} · ${esc(x.esas)} E. ${esc(x.karar)} K.</b><span>${esc(x.tarih)}</span></div>`).join('') +
+      `<div class="sayfalar"><button ${r.sayfa<=1?'disabled':''} id="geri">‹ Önceki</button><span>${r.sayfa}</span><button ${r.sayfa>=sayfaSay?'disabled':''} id="ileri">Sonraki ›</button></div>`;
+    L.querySelectorAll('.kayit').forEach(k => k.onclick = () => ac(+k.dataset.i));
+    const g=$('geri'), il=$('ileri'); if (g) g.onclick=()=>ara(r.sayfa-1); if (il) il.onclick=()=>ara(r.sayfa+1);
+    L.scrollTop = 0;
+    ac(0);
+  } catch(e) { L.innerHTML = `<div class="bos hata">${esc(e.message)}</div>`; }
+}
+async function ac(i){
+  const x = son.sonuclar[i]; secili = {x, metin:''};
+  document.querySelectorAll('.kayit').forEach(k => k.classList.toggle('secili', +k.dataset.i === i));
+  $('kunye').textContent = kunye(x); $('metin').innerHTML = '<span class="bos">Karar metni getiriliyor…</span>'; $('arac').style.display='flex';
+  try {
+    const r = await al('/api/karar?id=' + encodeURIComponent(x.id));
+    if (secili.x !== x) return;
+    if (r.pdf) { $('metin').innerHTML = `<iframe style="width:100%;height:80vh;border:0" src="data:application/pdf;base64,${r.pdf}"></iframe>`; return; }
+    secili.metin = r.metin; $('metin').innerHTML = vurgula(r.metin);
+    const m = $('metin').querySelector('mark'); $('okuma').scrollTop = 0; if (m) m.scrollIntoView({block:'center'});
+  } catch(e) { $('metin').innerHTML = `<span class="hata">${esc(e.message)}</span>`; }
+}
+function kopyala(s, m){ navigator.clipboard.writeText(s).then(()=>bildir(m), ()=>bildir('Kopyalanamadı')); }
+$('kopyaKunye').onclick = () => secili && kopyala(kunye(secili.x), 'Künye kopyalandı');
+$('kopyaMetin').onclick = () => secili && kopyala(kunye(secili.x) + '\n\n' + secili.metin, 'Metin kopyalandı');
+$('yazdir').onclick = () => { if (!secili) return; const t=document.title; document.title = kunye(secili.x).replace(/\//g,'-'); window.print(); document.title=t; };
+$('f').onsubmit = e => { e.preventDefault(); ara(1); };
+$('temizle').onclick = () => { alanlar.forEach(a => $(a).value = ''); $('tur').value='YARGITAYKARARI'; $('sira').value='yeni'; history.replaceState(null,'','#'); $('q').focus(); };
+document.addEventListener('keydown', e => {
+  if (!son || document.activeElement.tagName === 'INPUT') return;
+  const i = secili ? son.sonuclar.indexOf(secili.x) : -1;
+  if (e.key === 'ArrowDown' && i < son.sonuclar.length-1) { e.preventDefault(); ac(i+1); document.querySelector('.kayit.secili')?.scrollIntoView({block:'nearest'}); }
+  if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); ac(i-1); document.querySelector('.kayit.secili')?.scrollIntoView({block:'nearest'}); }
+});
+(() => { const p = new URLSearchParams(location.hash.slice(1)); let var_=false;
+  alanlar.forEach(a => { if (p.has(a)) { $(a).value = p.get(a); var_=true; } });
+  if (var_) ara(+p.get('sayfa') || 1); })();
+</script>
+</body>
+</html>
